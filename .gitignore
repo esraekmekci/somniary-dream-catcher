@@ -31,12 +31,16 @@ migrate_working_dir/
 
 # Firebase local config
 .firebaserc.local
+firebase.json
 
 # Firebase app config files (treat as sensitive in public repos)
 android/app/google-services.json
 ios/Runner/GoogleService-Info.plist
 macos/Runner/GoogleService-Info.plist
 lib/firebase_options.dart
+
+# Flutter lock file (ignored per project policy)
+pubspec.lock
 
 # Local environment/secrets
 .env
