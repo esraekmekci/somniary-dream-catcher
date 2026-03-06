@@ -1,0 +1,66 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.buildlog/
+.history
+.svn/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# The .vscode folder contains launch configuration and tasks you may want to keep.
+.vscode/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+
+# Firebase local config
+.firebaserc.local
+
+# Firebase app config files (treat as sensitive in public repos)
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+macos/Runner/GoogleService-Info.plist
+lib/firebase_options.dart
+
+# Local environment/secrets
+.env
+.env.*
+!.env.example
+functions/.env
+functions/.env.*
+!functions/.env.example
+
+# Cloud/service account keys
+*.pem
+*.p12
+*.p8
+*.key
+*.jwk
+*.json.key
+service-account*.json
+firebase-adminsdk*.json
+gcp-service-account*.json
+
+# Android/iOS signing files
+android/key.properties
+*.jks
+*.keystore
+ios/Runner/*.mobileprovision
+ios/Runner/*.p12
+ios/Runner/*.cer

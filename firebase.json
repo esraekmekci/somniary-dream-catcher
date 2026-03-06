@@ -1,0 +1,28 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "somniary-dream-catcher",
+          "appId": "1:696449943682:android:aedd3a029edc957e3f4c9b",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "somniary-dream-catcher",
+          "configurations": {
+            "android": "1:696449943682:android:aedd3a029edc957e3f4c9b"
+          }
+        }
+      }
+    }
+  },
+  "functions": {
+    "source": "functions"
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  }
+}
