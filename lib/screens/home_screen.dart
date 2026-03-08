@@ -5,6 +5,7 @@ import '../widgets/mystic_background.dart';
 import 'chat_screen.dart';
 import 'journal_screen.dart';
 import 'profile_screen.dart';
+import 'symbol_search_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -18,7 +19,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const pages = [ChatScreen(), JournalScreen(), ProfileScreen()];
+    const pages = [
+      ChatScreen(),
+      JournalScreen(),
+      SymbolSearchScreen(),
+      ProfileScreen(),
+    ];
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return MysticBackground(
@@ -53,10 +59,16 @@ class _HomeScreenState extends State<HomeScreen> {
                     onTap: () => setState(() => _index = 1),
                   ),
                   _TabButton(
-                    label: 'Profile',
-                    icon: Icons.person_outline_rounded,
+                    label: 'Symbols',
+                    icon: Icons.auto_awesome_outlined,
                     active: _index == 2,
                     onTap: () => setState(() => _index = 2),
+                  ),
+                  _TabButton(
+                    label: 'Profile',
+                    icon: Icons.person_outline_rounded,
+                    active: _index == 3,
+                    onTap: () => setState(() => _index = 3),
                   ),
                 ],
               ),
@@ -89,35 +101,41 @@ class _TabButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         onTap: onTap,
         child: Container(
-          height: 54,
+          height: 58,
           decoration: BoxDecoration(
             color: active
                 ? (isDark ? AppPalette.color800 : AppPalette.color100)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(18),
           ),
-          child: Row(
+          child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
                 icon,
-                size: 19,
+                size: 18,
                 color: active
                     ? (isDark ? AppPalette.color100 : AppPalette.color700)
                     : (isDark
                         ? AppPalette.darkTextSecondary
                         : AppPalette.lightTextSecondary),
               ),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: active
-                      ? (isDark ? AppPalette.color100 : AppPalette.color700)
-                      : (isDark
-                          ? AppPalette.darkTextSecondary
-                          : AppPalette.lightTextSecondary),
+              const SizedBox(height: 3),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: active
+                        ? (isDark ? AppPalette.color100 : AppPalette.color700)
+                        : (isDark
+                            ? AppPalette.darkTextSecondary
+                            : AppPalette.lightTextSecondary),
+                  ),
                 ),
               ),
             ],
