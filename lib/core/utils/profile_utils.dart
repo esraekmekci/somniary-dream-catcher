@@ -112,6 +112,25 @@ String zodiacFromDate(DateTime date) {
   return 'Pisces';
 }
 
+/// Returns the Unicode astrological symbol for the given zodiac sign name.
+String zodiacSymbol(String zodiacName) {
+  const symbols = {
+    'Aries': '♈',
+    'Taurus': '♉',
+    'Gemini': '♊',
+    'Cancer': '♋',
+    'Leo': '♌',
+    'Virgo': '♍',
+    'Libra': '♎',
+    'Scorpio': '♏',
+    'Sagittarius': '♐',
+    'Capricorn': '♑',
+    'Aquarius': '♒',
+    'Pisces': '♓',
+  };
+  return symbols[zodiacName] ?? '★';
+}
+
 class BirthDateTextInputFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(

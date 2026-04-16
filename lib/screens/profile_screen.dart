@@ -8,6 +8,7 @@ import '../core/utils/profile_utils.dart';
 import '../models/user_profile.dart';
 import '../state/app_state.dart';
 import '../widgets/birth_date_picker_dialog.dart';
+import 'zodiac_detail_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -299,10 +300,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       value: _birthDate,
                       onTap: _pickBirthDate,
                     ),
-                    _infoBadge(
-                      label: 'Zodiac sign',
-                      value: _zodiacSign ?? 'Will appear after birthday',
-                    ),
+                    _zodiacBadge(),
                     _dropdownField(
                       label: 'Gender',
                       value: _gender,
@@ -550,24 +548,86 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _infoBadge({
-    required String label,
-    required String value,
-  }) {
+  Widget _zodiacBadge() {
+    final sign = _zodiacSign;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final hasSign = sign != null;
+    final displayText =
+        hasSign ? 'Zodiac sign: $sign' : 'Zodiac sign: Will appear after birthday';
+    final symbol = hasSign ? zodiacSymbol(sign) : null;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          color: AppPalette.color100.withValues(alpha: 0.18),
-          border:
-              Border.all(color: AppPalette.color300.withValues(alpha: 0.35)),
-        ),
-        child: Text(
-          '$label: $value',
-          style: const TextStyle(fontWeight: FontWeight.w600),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: hasSign
+            ? () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ZodiacDetailScreen(zodiacName: sign),
+                  ),
+                )
+            : null,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            color: AppPalette.color100.withValues(alpha: 0.18),
+            border:
+                Border.all(color: AppPalette.color300.withValues(alpha: 0.35)),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  displayText,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+              if (hasSign) ...[
+                const SizedBox(width: 8),
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: isDark
+                          ? [AppPalette.color700, AppPalette.color900]
+                          : [AppPalette.color200, AppPalette.color400],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppPalette.color400.withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        spreadRadius: 1,
+                      ),
+                    ],
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    symbol!,
+                    style: TextStyle(
+                      fontSize: 20,
+                      color: isDark
+                          ? AppPalette.color100
+                          : AppPalette.color900,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: isDark
+                      ? AppPalette.darkTextSecondary
+                      : AppPalette.lightTextSecondary,
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );
