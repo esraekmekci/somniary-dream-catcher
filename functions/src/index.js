@@ -43,13 +43,45 @@ Use the user's profile and prior dream themes to personalize gently.
 Keep the user feeling safe and respected; never judge or shame.
 If the user expresses self-harm intent or severe distress, respond with empathy and encourage seeking professional help and trusted people, and suggest contacting local emergency services if in immediate danger.
 
+Interpretation Flow:
+
+1) Short Interpretation:
+- Start with a brief overall interpretation of the dream (2–4 sentences).
+- Keep it clear, simple, and not overly deep.
+- Avoid definitive statements; use soft, suggestive language.
+
+2) Symbols (Traditional Meanings Only):
+- Extract the main symbols from the dream.
+- For each symbol, provide a short meaning based on widely accepted traditional dream interpretations.
+- Do NOT create new or contextual meanings in this section.
+- Use direct meanings such as "abundance", "wealth", "journey", "uncertainty", "peace".
+- If a symbol has multiple common meanings, include 1–2 of the most recognized ones.
+- If the meaning is unclear or varies, say: "Its meaning may vary depending on context."
+- Keep each symbol explanation to one short sentence.
+
+3) Follow-up Questions for Deeper Interpretation:
+- Ask 3 to 5 short, natural questions to better understand the dream.
+- Questions must be specific to the dream content.
+- Base them on elements like setting, time, weather, people, emotions, objects, or actions.
+- Avoid generic or repetitive questions.
+- Prioritize the most distinctive elements in the dream (e.g., main object, location, emotional tone).
+
+Response Format (same language):
+
+Short Interpretation:
+[2–4 sentences]
+
+Symbols:
+- [Symbol]&#58; [Traditional meaning]
+- [Symbol]&#58; [Traditional meaning]
+
+Follow-up Questions:
+1. ...
+2. ...
+3. ...
+
 Respond entirely in ${languageName(languageCode)}.
-Output format (same language):
-1) Short summary (2-3 sentences)
-2) Symbols and possible meanings (bullet points)
-3) Psychological layer and context (2-5 sentences)
-4) Connection with past dreams if any (1-3 sentences)
-5) Gentle closing question (1 sentence)
+
 Also add this safety line exactly (or translated if needed): "${safetyLineFor(languageCode)}"`;
 }
 
@@ -279,36 +311,36 @@ function derivePrimaryMood(themes) {
 function fallbackAutoTitle(dreamText, symbols, themes, languageCode) {
   const map = (languageCode || '').startsWith('en')
     ? {
-        'su': 'Deep Waters',
-        'water': 'Deep Waters',
-        'uçmak': 'Rising Flight',
-        'flying': 'Rising Flight',
-        'kapı': 'At The Door',
-        'door': 'At The Door',
-        'ev': 'Silent House',
-        'house': 'Silent House',
-        'ayna': 'Mirror Room',
-        'mirror': 'Mirror Room',
-        'merdiven': 'Long Stairway',
-        'stairs': 'Long Stairway',
-        'yılan': 'Serpent Path',
-        'snake': 'Serpent Path',
-        'araba': 'Car Crash',
-        'car': 'Car Crash',
-        'alyans': 'Ringless Engagement',
-        'ring': 'Ringless Engagement',
-      }
+      'su': 'Deep Waters',
+      'water': 'Deep Waters',
+      'uçmak': 'Rising Flight',
+      'flying': 'Rising Flight',
+      'kapı': 'At The Door',
+      'door': 'At The Door',
+      'ev': 'Silent House',
+      'house': 'Silent House',
+      'ayna': 'Mirror Room',
+      'mirror': 'Mirror Room',
+      'merdiven': 'Long Stairway',
+      'stairs': 'Long Stairway',
+      'yılan': 'Serpent Path',
+      'snake': 'Serpent Path',
+      'araba': 'Car Crash',
+      'car': 'Car Crash',
+      'alyans': 'Ringless Engagement',
+      'ring': 'Ringless Engagement',
+    }
     : {
-        'su': 'Derin Sular',
-        'uçmak': 'Göğe Yükseliş',
-        'kapı': 'Eşik Kapısı',
-        'ev': 'Sessiz Ev',
-        'ayna': 'Ayna Odası',
-        'merdiven': 'Uzun Merdiven',
-        'yılan': 'Yılan Yolu',
-        'araba': 'Araba Kazası',
-        'alyans': 'Alyanssız Nişan',
-      };
+      'su': 'Derin Sular',
+      'uçmak': 'Göğe Yükseliş',
+      'kapı': 'Eşik Kapısı',
+      'ev': 'Sessiz Ev',
+      'ayna': 'Ayna Odası',
+      'merdiven': 'Uzun Merdiven',
+      'yılan': 'Yılan Yolu',
+      'araba': 'Araba Kazası',
+      'alyans': 'Alyanssız Nişan',
+    };
 
   for (const symbol of symbols || []) {
     const key = String(symbol || '').toLowerCase().trim();
