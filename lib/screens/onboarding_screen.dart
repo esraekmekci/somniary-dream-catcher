@@ -3,8 +3,10 @@ import 'package:provider/provider.dart';
 
 import '../core/theme/app_palette.dart';
 import '../core/utils/auth_error_mapper.dart';
+import '../core/utils/profile_utils.dart';
 import '../models/user_profile.dart';
 import '../state/app_state.dart';
+import '../widgets/birth_date_picker_dialog.dart';
 import '../widgets/mystic_background.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -21,7 +23,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
-  final _ageRanges = const ['18-24', '25-34', '35-44', '45+'];
   final _occupations = const [
     _notSpecified,
     'Student',
@@ -30,7 +31,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     'Freelancer',
     'Other',
   ];
-  final _stress = const [_notSpecified, 'Low', 'Moderate', 'High'];
   final _relationships = const [
     _notSpecified,
     'Single',
@@ -38,32 +38,33 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     'Married',
     'Complicated',
   ];
-  final _zodiacSigns = const [
-    _notSpecified,
-    'Aries',
-    'Taurus',
-    'Gemini',
-    'Cancer',
-    'Leo',
-    'Virgo',
-    'Libra',
-    'Scorpio',
-    'Sagittarius',
-    'Capricorn',
-    'Aquarius',
-    'Pisces',
-  ];
 
-  String _ageRange = '25-34';
+  final _stressOptions = const ['Calm', 'Balanced', 'Tense', 'Overloaded'];
+  final _stressEmojis = const ['😌', '🙂', '😣', '😤'];
+  final _sleepOptions = const [
+    'Recharged',
+    'Balanced',
+    'Sleepy',
+    'Exhausted',
+  ];
+  final _sleepEmojis = const ['⚡', '🙂', '😴', '🥱'];
+
+  DateTime? _birthDate;
   String _occupation = _notSpecified;
-  String _stressLevel = 'Moderate';
+  double _stressLevel = 1;
+  double _sleepLevel = 2;
   String _relationship = _notSpecified;
-  String _zodiacSign = _notSpecified;
 
   bool _isSignUp = false;
   bool _loading = false;
 
   String? _nullable(String value) => value == _notSpecified ? null : value;
+  String get _stressLabel => _stressOptions[_stressLevel.round()];
+  String get _stressEmoji => _stressEmojis[_stressLevel.round()];
+  String get _sleepLabel => _sleepOptions[_sleepLevel.round()];
+  String get _sleepEmoji => _sleepEmojis[_sleepLevel.round()];
+  String? get _zodiacSign =>
+      _birthDate == null ? null : zodiacFromDate(_birthDate!);
 
   @override
   void dispose() {
@@ -80,11 +81,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     try {
       if (_isSignUp) {
         final profile = UserProfile(
-          ageRange: _ageRange,
+          birthDate: _birthDate == null ? null : formatBirthDate(_birthDate!),
           occupation: _nullable(_occupation),
-          stressLevel: _nullable(_stressLevel),
+          stressLevel: _stressLabel,
+          sleepLevel: _sleepLabel,
           relationship: _nullable(_relationship),
-          zodiacSign: _nullable(_zodiacSign),
+          zodiacSign: _zodiacSign,
         );
 
         await appState.signUpWithProfile(
@@ -282,19 +284,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                 ),
                               ),
                               const SizedBox(height: 12),
-                              _dropdownField(
-                                label: 'Age',
-                                value: _ageRange,
-                                options: _ageRanges,
-                                onChanged: (v) =>
-                                    setState(() => _ageRange = v ?? _ageRange),
+                              _dateField(
+                                label: 'Birthday',
+                                value: _birthDate,
+                                onTap: _pickBirthDate,
                               ),
-                              _dropdownField(
+                              _infoBadge(
                                 label: 'Zodiac',
-                                value: _zodiacSign,
-                                options: _zodiacSigns,
-                                onChanged: (v) => setState(
-                                    () => _zodiacSign = v ?? _notSpecified),
+                                value: _zodiacSign ?? 'Will appear after date',
                               ),
                               _dropdownField(
                                 label: 'Occupation',
@@ -303,12 +300,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                 onChanged: (v) => setState(
                                     () => _occupation = v ?? _notSpecified),
                               ),
-                              _dropdownField(
+                              _moodSlider(
                                 label: 'Stress level',
                                 value: _stressLevel,
-                                options: _stress,
-                                onChanged: (v) => setState(
-                                    () => _stressLevel = v ?? _notSpecified),
+                                emoji: _stressEmoji,
+                                currentLabel: _stressLabel,
+                                onChanged: (v) =>
+                                    setState(() => _stressLevel = v),
+                              ),
+                              _moodSlider(
+                                label: 'Sleep pattern',
+                                value: _sleepLevel,
+                                emoji: _sleepEmoji,
+                                currentLabel: _sleepLabel,
+                                onChanged: (v) =>
+                                    setState(() => _sleepLevel = v),
                               ),
                               _dropdownField(
                                 label: 'Relationship status',
@@ -390,31 +396,189 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: DropdownButtonFormField<String>(
-        // ignore: deprecated_member_use
-        value: value,
-        isExpanded: true,
-        menuMaxHeight: 260,
-        itemHeight: 48,
-        items: options
-            .map(
-              (v) => DropdownMenuItem(
-                value: v,
+      child: Builder(
+        builder: (fieldContext) => InkWell(
+          onTap: () async {
+            final selected = await _showDropdownMenu(
+              context: fieldContext,
+              value: value,
+              options: options,
+            );
+            if (selected == null) return;
+            onChanged(selected);
+            FocusManager.instance.primaryFocus?.unfocus();
+          },
+          child: InputDecorator(
+            decoration: const InputDecoration(
+              labelText: '',
+              isDense: true,
+              contentPadding:
+                  EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            ).copyWith(labelText: label),
+            isEmpty: value == null || value.isEmpty,
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    value ?? '',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const Icon(Icons.arrow_drop_down_rounded),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<String?> _showDropdownMenu({
+    required BuildContext context,
+    required String? value,
+    required List<String> options,
+  }) async {
+    final renderBox = context.findRenderObject() as RenderBox;
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final position = RelativeRect.fromRect(
+      Rect.fromLTWH(
+        renderBox.localToGlobal(Offset.zero, ancestor: overlay).dx,
+        renderBox.localToGlobal(Offset.zero, ancestor: overlay).dy +
+            renderBox.size.height,
+        260,
+        0,
+      ),
+      Offset.zero & overlay.size,
+    );
+
+    return showMenu<String>(
+      context: context,
+      position: position,
+      initialValue: value,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      items: options
+          .map(
+            (option) => PopupMenuItem<String>(
+              value: option,
+              height: 48,
+              child: SizedBox(
+                width: 220,
                 child: Text(
-                  v,
+                  option,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-            )
-            .toList(),
-        decoration: InputDecoration(
-          labelText: label,
-          isDense: true,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            ),
+          )
+          .toList(),
+    );
+  }
+
+  Widget _dateField({
+    required String label,
+    required DateTime? value,
+    required VoidCallback onTap,
+  }) {
+    final text =
+        value == null ? 'Select your birthday' : formatBirthDateDisplay(value);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: InputDecorator(
+          decoration: const InputDecoration(
+            labelText: '',
+            isDense: true,
+            contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          ).copyWith(labelText: label),
+          child: Row(
+            children: [
+              Expanded(child: Text(text)),
+              const Icon(Icons.cake_outlined),
+            ],
+          ),
         ),
-        onChanged: onChanged,
       ),
     );
+  }
+
+  Widget _infoBadge({
+    required String label,
+    required String value,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          color: AppPalette.color100.withValues(alpha: 0.18),
+          border:
+              Border.all(color: AppPalette.color300.withValues(alpha: 0.35)),
+        ),
+        child: Row(
+          children: [
+            Text('$label: ',
+                style: const TextStyle(fontWeight: FontWeight.w600)),
+            Expanded(child: Text(value)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _moodSlider({
+    required String label,
+    required double value,
+    required String emoji,
+    required String currentLabel,
+    required ValueChanged<double> onChanged,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border:
+              Border.all(color: AppPalette.color300.withValues(alpha: 0.35)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(label,
+                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                ),
+                Text(emoji, style: const TextStyle(fontSize: 28)),
+                const SizedBox(width: 8),
+                Text(currentLabel),
+              ],
+            ),
+            Slider(
+              value: value,
+              min: 0,
+              max: 3,
+              divisions: 3,
+              label: currentLabel,
+              onChanged: onChanged,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickBirthDate() async {
+    final picked = await showBirthDatePickerDialog(
+      context: context,
+      initialDate: _birthDate,
+    );
+    if (picked == null) return;
+    setState(() => _birthDate = picked);
   }
 }

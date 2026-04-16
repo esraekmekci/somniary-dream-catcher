@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../core/theme/app_palette.dart';
+import '../core/utils/profile_utils.dart';
 import '../models/user_profile.dart';
 import '../state/app_state.dart';
+import '../widgets/birth_date_picker_dialog.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -16,8 +20,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   static const _notSpecified = 'Not specified';
 
   final _formKey = GlobalKey<FormState>();
-
-  final _ageRanges = const ['18-24', '25-34', '35-44', '45+'];
   final _genders = const [
     _notSpecified,
     'Female',
@@ -40,37 +42,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
     'Freelancer',
     'Other',
   ];
-  final _stress = const [_notSpecified, 'Low', 'Moderate', 'High'];
-  final _sleepPatterns = const [
-    _notSpecified,
-    'Early sleeper',
+  final _stressOptions = const ['Calm', 'Balanced', 'Tense', 'Overloaded'];
+  final _stressEmojis = const ['😌', '🙂', '😣', '😤'];
+  final _sleepOptions = const [
+    'Recharged',
     'Balanced',
-    'Night owl',
-    'Irregular',
+    'Sleepy',
+    'Exhausted',
   ];
-  final _zodiacSigns = const [
-    _notSpecified,
-    'Aries',
-    'Taurus',
-    'Gemini',
-    'Cancer',
-    'Leo',
-    'Virgo',
-    'Libra',
-    'Scorpio',
-    'Sagittarius',
-    'Capricorn',
-    'Aquarius',
-    'Pisces',
-  ];
+  final _sleepEmojis = const ['⚡', '🙂', '😴', '🥱'];
+  Timer? _autosaveTimer;
+  bool _didInitFromProfile = false;
+  bool _autosaveInFlight = false;
+  String? _lastSavedFingerprint;
 
-  String? _ageRange;
+  DateTime? _birthDate;
   String _gender = _notSpecified;
   String _relationship = _notSpecified;
   String _occupation = _notSpecified;
-  String _stressLevel = 'Moderate';
-  String _sleepSchedule = _notSpecified;
-  String _zodiacSign = _notSpecified;
+  double _stressLevel = 1;
+  double _sleepLevel = 2;
 
   String _pickOption(String? raw, List<String> options, {String? fallback}) {
     final v = raw?.trim();
@@ -80,50 +71,97 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return fallback ?? options.first;
   }
 
+  double _pickSlider(String? raw, List<String> options, double fallback) {
+    final index = options.indexOf(raw?.trim() ?? '');
+    return index >= 0 ? index.toDouble() : fallback;
+  }
+
+  String get _stressLabel => _stressOptions[_stressLevel.round()];
+  String get _stressEmoji => _stressEmojis[_stressLevel.round()];
+  String get _sleepLabel => _sleepOptions[_sleepLevel.round()];
+  String get _sleepEmoji => _sleepEmojis[_sleepLevel.round()];
+  String? get _zodiacSign =>
+      _birthDate == null ? null : zodiacFromDate(_birthDate!);
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    if (_didInitFromProfile) return;
     final p = context.read<AppState>().profile;
-    _ageRange = _pickOption(p.ageRange, _ageRanges, fallback: '25-34');
+    _birthDate = parseBirthDate(p.birthDate);
     _gender = _pickOption(p.gender, _genders, fallback: _notSpecified);
     _relationship =
         _pickOption(p.relationship, _relationships, fallback: _notSpecified);
     _occupation =
         _pickOption(p.occupation, _occupations, fallback: _notSpecified);
-    _stressLevel = _pickOption(p.stressLevel, _stress, fallback: 'Moderate');
-    _sleepSchedule =
-        _pickOption(p.sleepSchedule, _sleepPatterns, fallback: _notSpecified);
-    _zodiacSign =
-        _pickOption(p.zodiacSign, _zodiacSigns, fallback: _notSpecified);
+    _stressLevel = _pickSlider(p.stressLevel, _stressOptions, 1);
+    _sleepLevel = _pickSlider(p.sleepLevel, _sleepOptions, 2);
+    _lastSavedFingerprint = _profileFingerprint(_buildProfile());
+    _didInitFromProfile = true;
   }
 
   String? _nullable(String value) => value == _notSpecified ? null : value;
 
-  Future<void> _save() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    final profile = UserProfile(
-      ageRange: _ageRange,
+  UserProfile _buildProfile() {
+    return UserProfile(
+      birthDate: _birthDate == null ? null : formatBirthDate(_birthDate!),
       gender: _nullable(_gender),
       relationship: _nullable(_relationship),
       occupation: _nullable(_occupation),
-      stressLevel: _nullable(_stressLevel),
-      sleepSchedule: _nullable(_sleepSchedule),
-      zodiacSign: _nullable(_zodiacSign),
+      stressLevel: _stressLabel,
+      sleepLevel: _sleepLabel,
+      zodiacSign: _zodiacSign,
     );
+  }
+
+  String _profileFingerprint(UserProfile profile) => profile.toMap().toString();
+
+  Future<void> _save({bool showFeedback = false}) async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final profile = _buildProfile();
+    final fingerprint = _profileFingerprint(profile);
+    if (!showFeedback && fingerprint == _lastSavedFingerprint) {
+      return;
+    }
 
     try {
+      _autosaveInFlight = true;
       await context.read<AppState>().saveProfile(profile);
+      _lastSavedFingerprint = fingerprint;
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Preferences saved.')),
-      );
+      if (showFeedback) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Preferences saved.')),
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Profile update failed: $e')),
       );
+    } finally {
+      _autosaveInFlight = false;
     }
+  }
+
+  void _scheduleAutosave() {
+    if (!_didInitFromProfile || _autosaveInFlight) return;
+    _autosaveTimer?.cancel();
+    _autosaveTimer = Timer(const Duration(milliseconds: 450), () {
+      _save();
+    });
+  }
+
+  void _updateForm(VoidCallback change) {
+    setState(change);
+    _scheduleAutosave();
+  }
+
+  @override
+  void dispose() {
+    _autosaveTimer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -207,78 +245,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('About You · Memory Context',
-                        style: Theme.of(context).textTheme.titleMedium),
-                    const SizedBox(height: 6),
-                    Text(
-                      'These preferences personalize your interpretations. Stored locally and never used for advertising.',
-                      style: TextStyle(
-                        color: isDark
-                            ? AppPalette.darkTextSecondary
-                            : AppPalette.lightTextSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    _dropdownField(
-                      label: 'Age range *',
-                      value: _ageRange,
-                      options: _ageRanges,
-                      onChanged: (v) => setState(() => _ageRange = v),
-                      validator: (v) => v == null ? 'Required' : null,
-                    ),
-                    _dropdownField(
-                      label: 'Gender',
-                      value: _gender,
-                      options: _genders,
-                      onChanged: (v) =>
-                          setState(() => _gender = v ?? _notSpecified),
-                    ),
-                    _dropdownField(
-                      label: 'Relationship status',
-                      value: _relationship,
-                      options: _relationships,
-                      onChanged: (v) =>
-                          setState(() => _relationship = v ?? _notSpecified),
-                    ),
-                    _dropdownField(
-                      label: 'Occupation',
-                      value: _occupation,
-                      options: _occupations,
-                      onChanged: (v) =>
-                          setState(() => _occupation = v ?? _notSpecified),
-                    ),
-                    _dropdownField(
-                      label: 'Current stress level',
-                      value: _stressLevel,
-                      options: _stress,
-                      onChanged: (v) =>
-                          setState(() => _stressLevel = v ?? _notSpecified),
-                    ),
-                    _dropdownField(
-                      label: 'Sleep pattern',
-                      value: _sleepSchedule,
-                      options: _sleepPatterns,
-                      onChanged: (v) =>
-                          setState(() => _sleepSchedule = v ?? _notSpecified),
-                    ),
-                    _dropdownField(
-                      label: 'Zodiac sign',
-                      value: _zodiacSign,
-                      options: _zodiacSigns,
-                      onChanged: (v) =>
-                          setState(() => _zodiacSign = v ?? _notSpecified),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
                     Row(
                       children: [
                         const Icon(Icons.workspace_premium_rounded),
@@ -304,6 +270,73 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         },
                         child: const Text('Explore Premium'),
                       ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('About You · Memory Context',
+                        style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 6),
+                    Text(
+                      'These preferences personalize your interpretations. Stored locally and never used for advertising.',
+                      style: TextStyle(
+                        color: isDark
+                            ? AppPalette.darkTextSecondary
+                            : AppPalette.lightTextSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    _dateField(
+                      label: 'Birthday',
+                      value: _birthDate,
+                      onTap: _pickBirthDate,
+                    ),
+                    _infoBadge(
+                      label: 'Zodiac sign',
+                      value: _zodiacSign ?? 'Will appear after birthday',
+                    ),
+                    _dropdownField(
+                      label: 'Gender',
+                      value: _gender,
+                      options: _genders,
+                      onChanged: (v) =>
+                          _updateForm(() => _gender = v ?? _notSpecified),
+                    ),
+                    _dropdownField(
+                      label: 'Relationship status',
+                      value: _relationship,
+                      options: _relationships,
+                      onChanged: (v) =>
+                          _updateForm(() => _relationship = v ?? _notSpecified),
+                    ),
+                    _dropdownField(
+                      label: 'Occupation',
+                      value: _occupation,
+                      options: _occupations,
+                      onChanged: (v) =>
+                          _updateForm(() => _occupation = v ?? _notSpecified),
+                    ),
+                    _moodSlider(
+                      label: 'Stress level',
+                      value: _stressLevel,
+                      emoji: _stressEmoji,
+                      currentLabel: _stressLabel,
+                      onChanged: (v) => _updateForm(() => _stressLevel = v),
+                    ),
+                    _moodSlider(
+                      label: 'Sleep pattern',
+                      value: _sleepLevel,
+                      emoji: _sleepEmoji,
+                      currentLabel: _sleepLabel,
+                      onChanged: (v) => _updateForm(() => _sleepLevel = v),
                     ),
                   ],
                 ),
@@ -389,17 +422,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: _save,
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 6),
-                  child: Text('Save Preferences'),
-                ),
-              ),
-            ),
             const SizedBox(height: 8),
             TextButton.icon(
               onPressed: appState.signOut,
@@ -418,32 +440,179 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required String? value,
     required List<String> options,
     required ValueChanged<String?> onChanged,
-    String? Function(String?)? validator,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: DropdownButtonFormField<String>(
-        // ignore: deprecated_member_use
-        value: value,
-        isExpanded: true,
-        menuMaxHeight: 260,
-        itemHeight: 48,
-        items: options
-            .map(
-              (v) => DropdownMenuItem(
-                value: v,
-                child: Text(v, overflow: TextOverflow.ellipsis),
-              ),
-            )
-            .toList(),
-        decoration: InputDecoration(
-          labelText: label,
-          isDense: true,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      child: Builder(
+        builder: (fieldContext) => InkWell(
+          onTap: () async {
+            final selected = await _showDropdownMenu(
+              context: fieldContext,
+              value: value,
+              options: options,
+            );
+            if (selected == null) return;
+            onChanged(selected);
+            FocusManager.instance.primaryFocus?.unfocus();
+          },
+          child: InputDecorator(
+            decoration: const InputDecoration(
+              labelText: '',
+              isDense: true,
+              contentPadding:
+                  EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            ).copyWith(labelText: label),
+            isEmpty: value == null || value.isEmpty,
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    value ?? '',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const Icon(Icons.arrow_drop_down_rounded),
+              ],
+            ),
+          ),
         ),
-        onChanged: onChanged,
-        validator: validator,
+      ),
+    );
+  }
+
+  Future<String?> _showDropdownMenu({
+    required BuildContext context,
+    required String? value,
+    required List<String> options,
+  }) async {
+    final renderBox = context.findRenderObject() as RenderBox;
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final position = RelativeRect.fromRect(
+      Rect.fromLTWH(
+        renderBox.localToGlobal(Offset.zero, ancestor: overlay).dx,
+        renderBox.localToGlobal(Offset.zero, ancestor: overlay).dy +
+            renderBox.size.height,
+        260,
+        0,
+      ),
+      Offset.zero & overlay.size,
+    );
+
+    return showMenu<String>(
+      context: context,
+      position: position,
+      initialValue: value,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      items: options
+          .map(
+            (option) => PopupMenuItem<String>(
+              value: option,
+              height: 48,
+              child: SizedBox(
+                width: 220,
+                child: Text(
+                  option,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+          )
+          .toList(),
+    );
+  }
+
+  Widget _dateField({
+    required String label,
+    required DateTime? value,
+    required VoidCallback onTap,
+  }) {
+    final text =
+        value == null ? 'Select your birthday' : formatBirthDateDisplay(value);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: InputDecorator(
+          decoration: const InputDecoration(
+            labelText: '',
+            isDense: true,
+            contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          ).copyWith(labelText: label),
+          child: Row(
+            children: [
+              Expanded(child: Text(text)),
+              const Icon(Icons.cake_outlined),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _infoBadge({
+    required String label,
+    required String value,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          color: AppPalette.color100.withValues(alpha: 0.18),
+          border:
+              Border.all(color: AppPalette.color300.withValues(alpha: 0.35)),
+        ),
+        child: Text(
+          '$label: $value',
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+      ),
+    );
+  }
+
+  Widget _moodSlider({
+    required String label,
+    required double value,
+    required String emoji,
+    required String currentLabel,
+    required ValueChanged<double> onChanged,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border:
+              Border.all(color: AppPalette.color300.withValues(alpha: 0.35)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(label,
+                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                ),
+                Text(emoji, style: const TextStyle(fontSize: 28)),
+                const SizedBox(width: 8),
+                Text(currentLabel),
+              ],
+            ),
+            Slider(
+              value: value,
+              min: 0,
+              max: 3,
+              divisions: 3,
+              label: currentLabel,
+              onChanged: onChanged,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -481,5 +650,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _pickBirthDate() async {
+    final picked = await showBirthDatePickerDialog(
+      context: context,
+      initialDate: _birthDate,
+    );
+    if (picked == null) return;
+    _updateForm(() => _birthDate = picked);
   }
 }
