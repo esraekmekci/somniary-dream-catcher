@@ -193,7 +193,7 @@ class _ZodiacDetailScreenState extends State<ZodiacDetailScreen>
                           Row(
                             children: [
                               Icon(
-                                Icons.auto_awesome,
+                                Icons.spa_rounded,
                                 size: 20,
                                 color: isDark
                                     ? AppPalette.color300
