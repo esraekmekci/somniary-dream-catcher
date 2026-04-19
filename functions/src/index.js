@@ -1,4 +1,5 @@
 const { onRequest } = require('firebase-functions/v2/https');
+const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { defineSecret } = require('firebase-functions/params');
 const logger = require('firebase-functions/logger');
 const admin = require('firebase-admin');
@@ -13,6 +14,7 @@ const storage = admin.storage();
 
 const corsHandler = cors({ origin: true });
 const MISTRAL_API_KEY = defineSecret('MISTRAL_API_KEY');
+const HOROSCOPE_API_KEY = defineSecret('HOROSCOPE_API_KEY');
 
 function languageName(code) {
   if ((code || '').startsWith('tr')) return 'Turkish';
@@ -650,5 +652,86 @@ exports.transcribeAudio = onRequest(
 
       res.json({ text: text || '' });
     });
+  },
+);
+
+// ─── Daily Horoscope Fetcher (runs every day at 06:00 UTC) ───
+
+const ZODIAC_NAMES = [
+  'Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo',
+  'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces',
+];
+
+exports.fetchDailyHoroscopes = onSchedule(
+  {
+    schedule: 'every day 06:00',
+    timeZone: 'UTC',
+    region: 'us-central1',
+    secrets: [HOROSCOPE_API_KEY],
+    timeoutSeconds: 120,
+  },
+  async () => {
+    const apiKey = HOROSCOPE_API_KEY.value();
+    if (!apiKey) {
+      logger.error('HOROSCOPE_API_KEY is not configured.');
+      return;
+    }
+
+    const today = todayYmd();
+    const batch = db.batch();
+    let updated = 0;
+
+    for (const signName of ZODIAC_NAMES) {
+      const docRef = db.collection('zodiac_signs').doc(signName);
+
+      // Idempotency: skip if we already have today's horoscope
+      const docSnap = await docRef.get();
+      if (docSnap.exists) {
+        const existing = docSnap.data()?.dailyHoroscope;
+        if (existing?.date === today) {
+          logger.info(`${signName}: already up-to-date (${today}), skipping.`);
+          continue;
+        }
+      }
+
+      try {
+        const url = `https://api.api-ninjas.com/v1/horoscope?zodiac=${signName.toLowerCase()}`;
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: { 'X-Api-Key': apiKey },
+        });
+
+        if (!response.ok) {
+          const raw = await response.text();
+          logger.error(`Horoscope API error for ${signName} (${response.status}): ${raw}`);
+          continue;
+        }
+
+        const data = await response.json();
+
+        batch.set(
+          docRef,
+          {
+            dailyHoroscope: {
+              text: data.horoscope || '',
+              date: data.date || today,
+              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            },
+          },
+          { merge: true },
+        );
+        updated++;
+        logger.info(`${signName}: horoscope fetched for ${data.date || today}.`);
+      } catch (err) {
+        logger.error(`Failed to fetch horoscope for ${signName}:`, err);
+      }
+    }
+
+    if (updated > 0) {
+      await batch.commit();
+      logger.info(`Daily horoscopes committed for ${updated} sign(s).`);
+    } else {
+      logger.info('No horoscope updates needed today.');
+    }
   },
 );

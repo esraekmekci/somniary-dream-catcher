@@ -222,10 +222,93 @@ class _ZodiacDetailScreenState extends State<ZodiacDetailScreen>
                       ),
                     ),
                   ),
+                  const SizedBox(height: 16),
+                  // --- Daily Horoscope card ---
+                  _buildDailyHoroscopeCard(context, sign, isDark),
                 ],
               ),
             );
           },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDailyHoroscopeCard(
+      BuildContext context, ZodiacSign sign, bool isDark) {
+    final horoscopeText = sign.dailyHoroscopeText;
+    final horoscopeDate = sign.dailyHoroscopeDate;
+    final hasHoroscope =
+        horoscopeText != null && horoscopeText.trim().isNotEmpty;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.auto_awesome_rounded,
+                  size: 20,
+                  color:
+                      isDark ? AppPalette.color300 : AppPalette.color600,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Daily Horoscope',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const Spacer(),
+                if (horoscopeDate != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(100),
+                      color: (isDark
+                              ? AppPalette.color400
+                              : AppPalette.color600)
+                          .withValues(alpha: 0.12),
+                    ),
+                    child: Text(
+                      horoscopeDate,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: isDark
+                            ? AppPalette.color300
+                            : AppPalette.color600,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            if (hasHoroscope)
+              Text(
+                horoscopeText,
+                style: TextStyle(
+                  fontSize: 15,
+                  height: 1.7,
+                  color: isDark
+                      ? AppPalette.darkTextPrimary
+                      : AppPalette.lightTextPrimary,
+                ),
+              )
+            else
+              Text(
+                'No horoscope available today. Check back soon ✨',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontStyle: FontStyle.italic,
+                  color: isDark
+                      ? AppPalette.darkTextSecondary
+                      : AppPalette.lightTextSecondary,
+                ),
+              ),
+          ],
         ),
       ),
     );
